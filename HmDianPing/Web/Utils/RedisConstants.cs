@@ -13,5 +13,13 @@
 
         // Token 有效期 (分钟)
         public const int LOGIN_USER_TTL = 30;
+
+        public const string CACHE_SHOP_KEY = "cache:shop:";
+        public const int CACHE_SHOP_TTL = 30;
+
+        // 互斥锁 key 前缀
+        public const string LOCK_SHOP_KEY = "lock:shop:";
+        // 锁的过期时间 (秒)
+        public const int LOCK_SHOP_TTL = 10;
     }
 }
