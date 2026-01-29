@@ -1,0 +1,143 @@
+﻿@page "/shop/create"
+@rendermode InteractiveServer
+@using HmDianPing.Web.Models
+@using HmDianPing.Web.Services
+@using Microsoft.AspNetCore.Hosting
+@inject ShopService ShopService
+@inject NavigationManager Navigation
+@inject IWebHostEnvironment WebEnvironment
+
+<PageTitle>新增店铺</PageTitle>
+
+<div class="container mt-4" style="max-width: 600px;">
+    <div class="card shadow">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0">➕ 新增店铺</h4>
+        </div>
+        <div class="card-body">
+            @* Model: 绑定一个新的对象 *@
+            <EditForm Model="shop" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger mb-3" />
+
+                <div class="mb-3">
+                    <label class="form-label">店铺名称</label>
+                    <InputText @bind-Value="shop.Name" class="form-control" placeholder="请输入店铺名称" />
+                    <ValidationMessage For="() => shop.Name" class="text-danger" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">商圈 (Area)</label>
+                    <InputText @bind-Value="shop.Area" class="form-control" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">详细地址</label>
+                    <InputText @bind-Value="shop.Address" class="form-control" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">人均价格 (元)</label>
+                        <InputNumber @bind-Value="shop.AvgPrice" class="form-control" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">初始评分</label>
+                        <InputNumber @bind-Value="shop.Score" class="form-control" Step="0.1" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">店铺图片 (上传)</label>
+
+                    <InputFile OnChange="HandleFileSelected" class="form-control" accept=".jpg,.jpeg,.png" />
+
+                    @if (!string.IsNullOrEmpty(shop.Images))
+                    {
+                        <div class="mt-2">
+                            <small class="text-muted">预览：</small>
+                            <img src="@shop.Images" height="100" class="rounded border" />
+                        </div>
+                    }
+                    @if (isUploading)
+                    {
+                        <div class="text-primary small mt-1">正在上传图片...</div>
+                    }
+
+                    <ValidationMessage For="() => shop.Images" class="text-danger" />
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="/shops" class="btn btn-secondary">取消</a>
+                    <button type="submit" class="btn btn-success">确认创建</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    // 上传状态标记
+    private bool isUploading = false;
+    // 限制最大上传大小 (例如 5MB)
+    private long maxFileSize = 1024 * 1024 * 5;
+
+    // 直接初始化一个新的 Shop 对象
+    // 给一些默认值方便测试
+    private Shop shop = new Shop
+    {
+        Images = "https://placehold.co/200x200/green/white?text=New",
+        Score = 4.0m
+    };
+
+    private async Task HandleSubmit()
+    {
+        // 调用 Service 的新增方法
+        await ShopService.AddShopAsync(shop);
+
+        // 创建成功后，跳转回列表页，让用户看到新加的数据
+        Navigation.NavigateTo("/shops");
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+
+        if (file == null) return;
+
+        try
+        {
+            isUploading = true;
+            // 1. 生成安全的文件名
+            var newFileName = $"{Guid.NewGuid()}{Path.GetExtension(file.Name)}";
+
+            // 2. 构造保存路径
+            // 相对路径 (数据库存储)
+            var relativePath = $"/images/shops/{newFileName}";
+            // 绝对路径 (服务器保存)
+            var absolutePath = Path.Combine(WebEnvironment.WebRootPath, "images", "shops", newFileName);
+
+            // 确保目录存在
+            var dir = Path.GetDirectoryName(absolutePath);
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir!);
+
+            // 3. 保存文件到服务器
+            // OpenReadStream 需要设置 maxAllowedSize，否则默认限制 512KB
+            await using var stream = file.OpenReadStream(maxFileSize);
+            await using var fs = new FileStream(absolutePath, FileMode.Create);
+            await stream.CopyToAsync(fs);
+
+            // 4. 将生成的相对路径赋值给 Model，这样点击"提交"时就会存入数据库
+            shop.Images = relativePath;
+        }
+        catch (Exception ex)
+        {
+            // 实际开发中应该记录日志或提示用户
+            Console.WriteLine($"上传失败: {ex.Message}");
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+}

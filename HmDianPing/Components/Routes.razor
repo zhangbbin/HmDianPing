@@ -1,0 +1,14 @@
+﻿<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                <div class="alert alert-warning m-4">
+                    🛑 您没有权限访问此页面，请先 <a href="login">登录</a>。
+                </div>
+            </NotAuthorized>
+            <Authorizing>
+                <div class="m-4">身份校验中...</div>
+            </Authorizing>
+        </AuthorizeRouteView>
+    </Found>
+</Router>     

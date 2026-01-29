@@ -1,0 +1,162 @@
+﻿@page "/shop/edit/{Id:long}"
+@rendermode InteractiveServer
+@using HmDianPing.Web.Models
+@using HmDianPing.Web.Services
+@using Microsoft.AspNetCore.Hosting
+@inject ShopService ShopService
+@inject NavigationManager Navigation
+@inject IWebHostEnvironment WebEnvironment
+
+<PageTitle>编辑店铺</PageTitle>
+
+<div class="container mt-4" style="max-width: 600px;">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">✏️ 编辑店铺信息</h4>
+        </div>
+        <div class="card-body">
+            @if (shop == null)
+            {
+                <div class="spinner-border text-primary" role="status"></div>
+            }
+            else
+            {
+                @* Model: 绑定我们要修改的对象 *@
+                @* OnValidSubmit: 只有当验证通过时，才会触发该方法 *@
+                <EditForm Model="shop" OnValidSubmit="HandleSubmit">
+                    @* 开启数据验证 *@
+                    <DataAnnotationsValidator />
+                    @* 显示所有验证错误信息 *@
+                    <ValidationSummary class="text-danger mb-3" />
+
+                    <div class="mb-3">
+                        <label class="form-label">店铺名称</label>
+                        <InputText @bind-Value="shop.Name" class="form-control" />
+                        <ValidationMessage For="() => shop.Name" class="text-danger" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">商圈 (Area)</label>
+                        <InputText @bind-Value="shop.Area" class="form-control" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">详细地址</label>
+                        <InputText @bind-Value="shop.Address" class="form-control" />
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">人均价格 (元)</label>
+                            <InputNumber @bind-Value="shop.AvgPrice" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">评分</label>
+                            <InputNumber @bind-Value="shop.Score" class="form-control" Step="0.1" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">更新图片</label>
+                        <InputFile OnChange="HandleFileSelected" class="form-control" accept=".jpg,.jpeg,.png" />
+
+                        @if (!string.IsNullOrEmpty(shop.Images))
+                        {
+                            <div class="mt-2">
+                                <small class="text-muted">当前图片：</small>
+                                <img src="@shop.Images" height="100" class="rounded border" />
+                            </div>
+                        }
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        @* 这里的 type="button" 仅仅是取消跳转，不提交表单 *@
+                        <a href="/shop/@shop.Id" class="btn btn-secondary">取消</a>
+                        @* 这里的 type="submit" 会触发 OnValidSubmit *@
+                        <button type="submit" class="btn btn-primary">保存修改</button>
+                    </div>
+                </EditForm>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public long Id { get; set; }
+
+    // 上传状态标记
+    private bool isUploading = false;
+    // 限制最大上传大小 (例如 5MB)
+    private long maxFileSize = 1024 * 1024 * 5;
+
+    // 这里我们需要初始化一个非空对象，或者在页面加载前处理 null
+    // 为了简化，我们先设为 null，并在 UI 加判断
+    private Shop? shop;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 加载现有数据
+        shop = await ShopService.GetShopByIdAsync(Id);
+
+        // 如果找不到店铺（比如输错了ID），跳回列表
+        if (shop == null)
+        {
+            Navigation.NavigateTo("/shops");
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (shop != null)
+        {
+            shop.UpdateTime = DateTime.Now; // 更新修改时间
+            await ShopService.UpdateShopAsync(shop);
+
+            // 修改成功后，跳回详情页查看结果
+            Navigation.NavigateTo($"/shop/{shop.Id}");
+        }
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+
+        if (file == null) return;
+
+        try
+        {
+            isUploading = true;
+            // 1. 生成安全的文件名
+            var newFileName = $"{Guid.NewGuid()}{Path.GetExtension(file.Name)}";
+
+            // 2. 构造保存路径
+            // 相对路径 (数据库存储)
+            var relativePath = $"/images/shops/{newFileName}";
+            // 绝对路径 (服务器保存)
+            var absolutePath = Path.Combine(WebEnvironment.WebRootPath, "images", "shops", newFileName);
+
+            // 确保目录存在
+            var dir = Path.GetDirectoryName(absolutePath);
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir!);
+
+            // 3. 保存文件到服务器
+            // OpenReadStream 需要设置 maxAllowedSize，否则默认限制 512KB
+            await using var stream = file.OpenReadStream(maxFileSize);
+            await using var fs = new FileStream(absolutePath, FileMode.Create);
+            await stream.CopyToAsync(fs);
+
+            // 4. 将生成的相对路径赋值给 Model，这样点击"提交"时就会存入数据库
+            shop.Images = relativePath;
+        }
+        catch (Exception ex)
+        {
+            // 实际开发中应该记录日志或提示用户
+            Console.WriteLine($"上传失败: {ex.Message}");
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+}

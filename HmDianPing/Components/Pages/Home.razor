@@ -1,0 +1,41 @@
+﻿@page "/"
+@using StackExchange.Redis
+@inject IConnectionMultiplexer Redis
+
+<PageTitle>Home</PageTitle>
+
+<h1>Hello, world!</h1>
+
+<div class="alert alert-success">
+    Redis 状态检测: <strong>@statusMessage</strong>
+</div>
+
+@code {
+    private string statusMessage = "正在检测...";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // 获取 Redis 数据库 (默认 db 0)
+            var db = Redis.GetDatabase();
+
+            // 简单的写读测试
+            db.StringSet("ping", "pong");
+            var value = db.StringGet("ping");
+
+            if (value == "pong")
+            {
+                statusMessage = "✅ 连接成功！Redis 响应正常。";
+            }
+            else
+            {
+                statusMessage = "⚠️ 连接成功但数据读写异常。";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"连接失败: {ex.Message}";
+        }
+    }
+}

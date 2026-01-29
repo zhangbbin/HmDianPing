@@ -1,0 +1,153 @@
+﻿@page "/login"
+@rendermode InteractiveServer
+@using HmDianPing.Web.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [AllowAnonymous]
+
+@inject AuthenticationStateProvider AuthProvider
+@inject UserService UserService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+
+<PageTitle>用户登录</PageTitle>
+<div class="container mt-5" style="max-width: 400px">
+    <div class="card shadow">
+        <div class="card-body">
+            <h3 class="card-title text-center mb-4">🔐 欢迎登录</h3>
+            
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label">手机号码</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-phone"></i></span>
+                    <input type="text" class="form-control" placeholder="请输入手机号"
+                           @bind="phone" />
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">验证码</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" placeholder="6位数字"
+                           @bind="code" />
+                    <button class="btn btn-outline-secondary" type="button"
+                            disabled="@(isCountingDown)"
+                            @onclick="SendCode">
+                        @if (isCountingDown)
+                        {
+                            <span>@countDown 秒后重试</span>
+                        }
+                        else
+                        {
+                            <span>发送验证码</span>
+                        }
+                    </button>
+                </div>
+            </div>
+
+            <div class="d-grid">
+                <button class="btn btn-primary btn-lg" @onclick="HandleLogin">登录 / 注册</button>
+            </div>
+
+            <div class="text-center mt-3">
+                <small class="text-muted">未注册的手机号验证通过后将自动注册</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string phone = "";
+    private string code = "";
+    private string? errorMessage;
+
+    // 倒计时相关逻辑
+    private bool isCountingDown = false;
+    private int countDown = 60;
+
+    private async Task SendCode()
+    {
+        errorMessage = null;
+
+        // 调用Service发送验证码
+        var error = await UserService.SendCodeAsync(phone);
+
+        if (error != null)
+        {
+            errorMessage = error;
+        }
+        else
+        {
+            // 发送成功，开始倒计时 UI 效果
+            StartCountDown();
+        }
+    }
+
+    private void StartCountDown()
+    {
+        isCountingDown = true;
+        countDown = 60;
+
+        // 开启一个计时器, 每秒执行一次
+        _ = Task.Run(async () =>
+        {
+            while (countDown > 0)
+            {
+                await Task.Delay(1000);
+                countDown--;
+                // 通知UI更新
+                await InvokeAsync(StateHasChanged);
+            }
+            isCountingDown = false;
+            // 通知UI更新
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private async Task HandleLogin()
+    {
+        errorMessage = null;
+
+        // 1. 基本前端校验
+        if (string.IsNullOrWhiteSpace(phone) || string.IsNullOrWhiteSpace(code))
+        {
+            errorMessage = "手机号和验证码不能为空";
+            return;
+        }
+
+        // 2. 调用后端登录
+        var result = await UserService.LoginAsync(phone, code);
+
+        if (result.IsSuccess)
+        {
+            // 3. 登录成功！
+            // 【关键】将 Token 存入浏览器 LocalStorage
+            // 这里我们直接调用 JS 函数，稍后简单写一下
+            await JS.InvokeVoidAsync("localStorage.setItem", "hmdianping_token", result.Token);
+
+            await JS.InvokeVoidAsync("localStorage.setItem", "hmdianping_user", result.User?.NickName);
+
+            // 4 【新增】通知 AuthProvider 状态变了！
+            // 强制转换类型
+            if (AuthProvider is HmAuthStateProvider hmAuth)
+            {
+                hmAuth.NotifyUserLogin(result.Token);
+            }
+
+            // 5. 跳转回首页或来源页
+            Navigation.NavigateTo("/");
+        }
+        else
+        {
+            // 登录失败，显示错误信息
+            errorMessage = result.Message;
+        }
+    }
+
+}

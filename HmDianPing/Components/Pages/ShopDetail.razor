@@ -1,0 +1,108 @@
+﻿@page "/shop/{Id:long}"
+@rendermode InteractiveServer
+@using HmDianPing.Web.Models
+@using HmDianPing.Web.Services
+@inject ShopService ShopService
+@inject NavigationManager Navigation
+
+<PageTitle>店铺详情 - @(shop?.Name ?? "加载中")</PageTitle>
+
+<div class="container mt-4">
+    @* 返回按钮 *@
+    <button class="btn btn-outline-secondary mb-3" @onclick="GoBack">
+        <i class="bi bi-arrow-left"></i> 返回列表
+    </button>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (shop == null)
+    {
+        <div class="alert alert-danger">
+            未找到 ID 为 @Id 的店铺信息。
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-lg">
+            <div class="row g-0">
+                <div class="col-md-5">
+                    <img src="@shop.Images" class="img-fluid rounded-start h-100" style="object-fit: cover; min-height: 300px;" alt="@shop.Name">
+                </div>
+                <div class="col-md-7">
+                    <div class="card-body">
+                        <h2 class="card-title fw-bold">@shop.Name</h2>
+                        <div class="mb-3">
+                            <span class="badge bg-warning text-dark fs-6">⭐ @shop.Score 分</span>
+                            <span class="text-muted ms-2">人均 ¥@shop.AvgPrice</span>
+                        </div>
+
+                        <ul class="list-group list-group-flush mb-3">
+                            <li class="list-group-item">
+                                <i class="bi bi-geo-alt text-primary"></i>
+                                <strong>地址：</strong> @shop.Address (@shop.Area)
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-chat-dots text-success"></i>
+                                <strong>评价数：</strong> @shop.Comments 条
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-clock text-info"></i>
+                                <strong>更新时间：</strong> @shop.UpdateTime.ToShortDateString()
+                            </li>
+                        </ul>
+
+                        <div class="d-grid gap-2 d-md-block">
+                            <button class="btn btn-primary" @onclick="AddHeat">
+                                <i class="bi bi-hand-thumbs-up"></i> 点赞 (@shop.Comments)
+                            </button>
+                            <a href="/shop/edit/@shop.Id" class="btn btn-outline-secondary">
+                                <i class="bi bi-pencil-square"></i> 编辑
+                            </a>
+                            <button class="btn btn-outline-danger">收藏店铺</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public long Id { get; set; }  // 接收路由参数
+
+    private Shop? shop;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 模拟加载延迟，体验更好
+        await Task.Delay(300);
+        shop = await ShopService.GetShopByIdAsync(Id);
+        isLoading = false;
+    }
+
+    private void GoBack()
+    {
+        // 使用 NavigationManager 返回上一页
+        Navigation.NavigateTo("/shops");
+    }
+
+    private async Task AddHeat()
+    {
+        if (shop == null) return;
+
+        await ShopService.AddCommentCountAsync(shop.Id);
+
+        // shop.Comments += 1; // 假设评论数代表热度
+
+        // Blazor 会自动检测到状态变化并刷新 UI
+    }
+
+}
