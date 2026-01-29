@@ -1,0 +1,34 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using HmDianPing.Web.Services
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthProvider
+
+@* 👇 关键：只让这个小组件开启交互模式 *@
+@rendermode InteractiveServer
+
+<AuthorizeView>
+    <Authorized>
+        <span class="me-3">👋 欢迎, <strong>@context.User.Identity?.Name</strong></span>
+        <button class="btn btn-link" @onclick="Logout">注销</button>
+    </Authorized>
+    <NotAuthorized>
+        <a href="login">登录</a>
+        <a href="shop/create" class="ms-3">商家入驻</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private async Task Logout()
+    {
+        await JS.InvokeVoidAsync("localStorage.removeItem", "hmdianping_token");
+        await JS.InvokeVoidAsync("localStorage.removeItem", "hmdianping_user");
+
+        if (AuthProvider is HmAuthStateProvider hmAuth)
+        {
+            hmAuth.NotifyUserLogout();
+        }
+
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}

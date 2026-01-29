@@ -1,7 +1,6 @@
 ﻿@using HmDianPing.Web.Services
 @using Microsoft.AspNetCore.Components.Authorization
 @inherits LayoutComponentBase
-@rendermode InteractiveServer
 
 <div class="page">
     <div class="sidebar">
@@ -10,16 +9,7 @@
 
     <main>
         <div class="top-row px-4">
-            <AuthorizeView>
-                <Authorized>
-                    <span class="me-3">👋 欢迎, <strong>@context.User.Identity?.Name</strong></span>
-                    <button class="btn btn-link" @onclick="Logout">注销</button>
-                </Authorized>
-                <NotAuthorized>
-                    <a href="login">登录</a>
-                    <a href="shop/create" class="ms-3">商家入驻</a>
-                </NotAuthorized>
-            </AuthorizeView>
+            <UserMenu />
 
             <a href="https://learn.microsoft.com/aspnet/core/" target="_blank" class="ms-3">About</a>
         </div>
@@ -36,25 +26,3 @@
     <span class="dismiss">🗙</span>
 </div>
 
-@code {
-    [Inject] IJSRuntime JS { get; set; }
-    [Inject] NavigationManager Navigation { get; set; }
-    [Inject] AuthenticationStateProvider AuthProvider { get; set; }
-
-    private async Task Logout()
-    {
-        // 1. 清除浏览器 Token
-        await JS.InvokeVoidAsync("localStorage.removeItem", "hmdianping_token");
-        await JS.InvokeVoidAsync("localStorage.removeItem", "hmdianping_user");
-
-        // 2. 通知 Provider 变回匿名状态
-        if (AuthProvider is HmAuthStateProvider hmAuth)
-        {
-            hmAuth.NotifyUserLogout();
-        }
-
-        // 3. 强制刷新页面，确保所有状态重置
-        // forceLoad: true 会强制浏览器重新加载页面，这对注销逻辑更安全
-        Navigation.NavigateTo("/login", forceLoad: true);
-    }
-}

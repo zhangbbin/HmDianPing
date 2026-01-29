@@ -1,6 +1,9 @@
 ﻿@page "/"
 @using StackExchange.Redis
 @inject IConnectionMultiplexer Redis
+@using Microsoft.AspNetCore.Authorization
+@* 👇 添加这行，允许任何人访问首页 *@
+@attribute [AllowAnonymous]
 
 <PageTitle>Home</PageTitle>
 
