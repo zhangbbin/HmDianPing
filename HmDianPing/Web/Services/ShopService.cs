@@ -1,4 +1,5 @@
 ﻿using HmDianPing.Web.Data;
+using HmDianPing.Web.Dtos;
 using HmDianPing.Web.Models;
 using HmDianPing.Web.Utils;
 using Microsoft.EntityFrameworkCore;
@@ -12,42 +13,113 @@ namespace HmDianPing.Web.Services
     {
         private readonly HmDbContext _context;
         private readonly IConnectionMultiplexer _redis;
+        private readonly ILogger<ShopService> _logger;
 
         // 构造函数注入 DbContext
-        public ShopService(HmDbContext dbContext, IConnectionMultiplexer redis)
+        public ShopService(HmDbContext dbContext, IConnectionMultiplexer redis, ILogger<ShopService> logger)
         {
             _context = dbContext;
             _redis = redis;
+            _logger = logger;
         }
 
         // 获取所有店铺，按评分降序排序
         public async Task<PagedResult<Shop>> GetAllShopsAsync(string? searchText = null, int pageIndex = 1, int pageSize = 6)
         {
-            // 创建查询构建器 (IQueryable)，此时还没发送 SQL
-            var query = _context.Shops.AsQueryable();
-
-            // 1. 如果有搜索词，动态添加 WHERE 条件
-            if (!string.IsNullOrWhiteSpace(searchText))
+            return await GetShopsByFilterAsync(new FilterRequest
             {
-                // 这里的 Contains 会被翻译成 SQL 的 LIKE '%keyword%'
-                // 我们同时搜索 店铺名 和 商圈
-                query = query.Where(s => s.Name.Contains(searchText) || s.Area.Contains(searchText));
+                SearchText = searchText,
+                SortBy = ShopSortBy.Rating
+            }, pageIndex, pageSize);
+        }
+
+        public async Task<ShopFilterOptionsDto> GetFilterOptionsAsync()
+        {
+            var query = _context.Shops.AsNoTracking();
+
+            var categories = await query
+                .Where(s => !string.IsNullOrWhiteSpace(s.TypeId))
+                .Select(s => s.TypeId!)
+                .Distinct()
+                .OrderBy(x => x)
+                .ToListAsync();
+
+            var regions = await query
+                .Where(s => !string.IsNullOrWhiteSpace(s.Area))
+                .Select(s => s.Area!)
+                .Distinct()
+                .OrderBy(x => x)
+                .ToListAsync();
+
+            return new ShopFilterOptionsDto
+            {
+                Categories = categories,
+                Regions = regions
+            };
+        }
+
+        public async Task<PagedResult<Shop>> GetShopsByFilterAsync(FilterRequest request, int pageIndex = 1, int pageSize = 6)
+        {
+            pageIndex = Math.Max(1, pageIndex);
+            pageSize = Math.Clamp(pageSize, 1, 50);
+
+            var query = _context.Shops.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(request.SearchText))
+            {
+                var keyword = request.SearchText.Trim();
+                query = query.Where(s => s.Name.Contains(keyword) || s.Area!.Contains(keyword) || s.Address!.Contains(keyword));
             }
 
-            // 2. 在分页前，先计算符合条件的总条数
-            int totalCount = await query.CountAsync();
+            if (!string.IsNullOrWhiteSpace(request.Category))
+            {
+                query = query.Where(s => s.TypeId == request.Category);
+            }
 
-            // 3. 计算要跳过多少条
+            if (!string.IsNullOrWhiteSpace(request.Region))
+            {
+                query = query.Where(s => s.Area == request.Region);
+            }
+
+            if (request.MinAvgPrice.HasValue)
+            {
+                query = query.Where(s => s.AvgPrice >= request.MinAvgPrice.Value);
+            }
+
+            if (request.MaxAvgPrice.HasValue)
+            {
+                query = query.Where(s => s.AvgPrice <= request.MaxAvgPrice.Value);
+            }
+
+            if (request.MinRating.HasValue)
+            {
+                query = query.Where(s => s.Score >= request.MinRating.Value);
+            }
+
+            query = request.SortBy switch
+            {
+                ShopSortBy.Distance => query
+                    .OrderBy(s => string.IsNullOrWhiteSpace(request.Region) ? 0 : (s.Area == request.Region ? 0 : 1))
+                    .ThenByDescending(s => s.Score)
+                    .ThenByDescending(s => s.Id),
+                ShopSortBy.Popularity => query
+                    .OrderByDescending(s => s.Comments)
+                    .ThenByDescending(s => s.Score)
+                    .ThenByDescending(s => s.Id),
+                _ => query
+                    .OrderByDescending(s => s.Score)
+                    .ThenByDescending(s => s.Comments)
+                    .ThenByDescending(s => s.Id)
+            };
+
+            int totalCount = await query.CountAsync();
             int skip = (pageIndex - 1) * pageSize;
 
-            // 4. 获取当前页数据
             var items = await query
-                .OrderByDescending(s => s.Score) // 按评分降序排序
-                .Skip(skip)                      // 跳过前面的记录
-                .Take(pageSize)                  // 取出当前页的记录数
-                .ToListAsync();                  // 执行查询
+                .Skip(skip)
+                .Take(pageSize)
+                .ToListAsync();
 
-            // 5. 组装结果
             return new PagedResult<Shop>
             {
                 Items = items,
@@ -78,6 +150,7 @@ namespace HmDianPing.Web.Services
                 {
                     // 获取锁失败 (说明有其他人正在重建缓存)
                     // 休眠一会，然后重试 (递归调用自己)
+                    _logger.LogDebug("店铺 {Id} 缓存重建互斥锁获取失败，正在重试...", id);
                     await Task.Delay(50);
                     return await GetShopByIdAsync(id);
                 }
@@ -91,9 +164,13 @@ namespace HmDianPing.Web.Services
                     return JsonSerializer.Deserialize<Shop>(shopJson);
                 }
 
+                _logger.LogInformation("正在从数据库加载店铺 {Id} 的数据...", id);
                 // 4. 真正去查数据库
                 // 使用 AsNoTracking 防止跟踪冲突
-                shop = await _context.Shops.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
+                shop = await _context.Shops
+                    .AsNoTracking()
+                    .Include(s => s.Dishes.OrderBy(d => d.SortOrder))
+                    .FirstOrDefaultAsync(s => s.Id == id);
 
                 // 模拟重建延时 (测试用，生产环境请删掉)
                 // await Task.Delay(200); 
@@ -111,7 +188,7 @@ namespace HmDianPing.Web.Services
             }
             catch (Exception ex)
             {
-                // 记录日志...
+                _logger.LogError(ex, "查询店铺 {Id} 详情时发生异常", id);
                 throw;
             }
             finally

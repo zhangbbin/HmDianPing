@@ -38,6 +38,17 @@
 
                 <div class="row">
                     <div class="col-md-6 mb-3">
+                        <label class="form-label">营业时间</label>
+                        <InputText @bind-Value="shop.BusinessHours" class="form-control" placeholder="例如：10:00 - 22:00" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">联系电话</label>
+                        <InputText @bind-Value="shop.Phone" class="form-control" placeholder="例如：400-800-1234" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
                         <label class="form-label">人均价格 (元)</label>
                         <InputNumber @bind-Value="shop.AvgPrice" class="form-control" />
                     </div>
@@ -65,6 +76,16 @@
                     }
 
                     <ValidationMessage For="() => shop.Images" class="text-danger" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">推荐菜（逗号分隔）</label>
+                    <InputText @bind-Value="shop.RecommendedDishes" class="form-control" placeholder="例如：黑椒牛排, 海鲜拼盘, 提拉米苏" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">评论摘要（可选）</label>
+                    <InputTextArea @bind-Value="shop.ReviewSummary" class="form-control" rows="3" />
                 </div>
 
                 <div class="d-flex justify-content-end gap-2 mt-4">

@@ -31,15 +31,38 @@
     {
         <div class="card shadow-lg">
             <div class="row g-0">
-                <div class="col-md-5">
-                    <img src="@shop.Images" class="img-fluid rounded-start h-100" style="object-fit: cover; min-height: 300px;" alt="@shop.Name">
+                <div class="col-md-5 p-3">
+                    @{
+                        var images = GetImageList(shop.Images);
+                        var cover = images.FirstOrDefault() ?? "https://placehold.co/800x600/efefef/666?text=No+Image";
+                    }
+
+                    <img src="@cover" class="img-fluid rounded border w-100" style="object-fit: cover; min-height: 320px;" alt="@shop.Name">
+
+                    @if (images.Count > 1)
+                    {
+                        <div class="row g-2 mt-2">
+                            @foreach (var image in images.Take(4))
+                            {
+                                <div class="col-3">
+                                    <img src="@image" class="img-fluid rounded border" style="height: 60px; width: 100%; object-fit: cover;" alt="@shop.Name 图片">
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
                 <div class="col-md-7">
                     <div class="card-body">
                         <h2 class="card-title fw-bold">@shop.Name</h2>
-                        <div class="mb-3">
+                        <div class="mb-2 d-flex align-items-center gap-2 flex-wrap">
                             <span class="badge bg-warning text-dark fs-6">⭐ @shop.Score 分</span>
-                            <span class="text-muted ms-2">人均 ¥@shop.AvgPrice</span>
+                            <span class="text-muted">人均 ¥@shop.AvgPrice</span>
+                            <span class="text-warning">
+                                @for (int i = 1; i <= 5; i++)
+                                {
+                                    <span>@(i <= Math.Round((double)shop.Score) ? "★" : "☆")</span>
+                                }
+                            </span>
                         </div>
 
                         <ul class="list-group list-group-flush mb-3">
@@ -48,18 +71,35 @@
                                 <strong>地址：</strong> @shop.Address (@shop.Area)
                             </li>
                             <li class="list-group-item">
+                                <i class="bi bi-clock text-info"></i>
+                                <strong>营业时间：</strong> @GetBusinessHours(shop)
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-telephone text-success"></i>
+                                <strong>电话：</strong> @GetContactPhone(shop)
+                            </li>
+                            <li class="list-group-item">
                                 <i class="bi bi-chat-dots text-success"></i>
                                 <strong>评价数：</strong> @shop.Comments 条
                             </li>
-                            <li class="list-group-item">
-                                <i class="bi bi-clock text-info"></i>
-                                <strong>更新时间：</strong> @shop.UpdateTime.ToShortDateString()
-                            </li>
                         </ul>
+
+                        <div class="mb-3">
+                            <h6 class="fw-bold mb-2">🍽️ 推荐菜</h6>
+                            @foreach (var dish in GetRecommendedDishes(shop))
+                            {
+                                <span class="badge bg-light text-dark border me-2 mb-2">@dish</span>
+                            }
+                        </div>
+
+                        <div class="alert alert-light border mb-3">
+                            <h6 class="fw-bold mb-1">📝 评论摘要</h6>
+                            <div class="text-muted small">@GetReviewSummary(shop)</div>
+                        </div>
 
                         <div class="d-grid gap-2 d-md-block">
                             <button class="btn btn-primary" @onclick="AddHeat">
-                                <i class="bi bi-hand-thumbs-up"></i> 点赞 (@shop.Comments)
+                                <i class="bi bi-hand-thumbs-up"></i> 觉得有用 (@shop.Comments)
                             </button>
                             <a href="/shop/edit/@shop.Id" class="btn btn-outline-secondary">
                                 <i class="bi bi-pencil-square"></i> 编辑
@@ -99,10 +139,94 @@
         if (shop == null) return;
 
         await ShopService.AddCommentCountAsync(shop.Id);
+        shop.Comments += 1;
+    }
 
-        // shop.Comments += 1; // 假设评论数代表热度
+    private static List<string> GetImageList(string? imageText)
+    {
+        if (string.IsNullOrWhiteSpace(imageText))
+        {
+            return new List<string>();
+        }
 
-        // Blazor 会自动检测到状态变化并刷新 UI
+        return imageText
+            .Split([',', '，', ';', '|'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct()
+            .ToList();
+    }
+
+    private static string GetBusinessHours(Shop shop)
+    {
+        return string.IsNullOrWhiteSpace(shop.BusinessHours) ? "10:00 - 22:00" : shop.BusinessHours;
+    }
+
+    private static string GetContactPhone(Shop shop)
+    {
+        return string.IsNullOrWhiteSpace(shop.Phone) ? "400-800-1234" : shop.Phone;
+    }
+
+    private static List<string> GetRecommendedDishes(Shop shop)
+    {
+        if (shop.Dishes.Count > 0)
+        {
+            return shop.Dishes
+                .OrderBy(x => x.SortOrder)
+                .Select(x => x.Name)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct()
+                .Take(6)
+                .ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(shop.RecommendedDishes))
+        {
+            return shop.RecommendedDishes
+                .Split([',', '，', ';', '|'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct()
+                .Take(6)
+                .ToList();
+        }
+
+        var dishes = new List<string>();
+
+        if (shop.AvgPrice >= 120)
+        {
+            dishes.AddRange(["黑椒牛排", "海鲜拼盘", "提拉米苏"]);
+        }
+        else if (shop.AvgPrice >= 60)
+        {
+            dishes.AddRange(["招牌烤鱼", "蒜蓉生蚝", "手打柠檬茶"]);
+        }
+        else
+        {
+            dishes.AddRange(["经典汉堡", "薯条拼盘", "冰柠可乐"]);
+        }
+
+        if (!string.IsNullOrWhiteSpace(shop.Area))
+        {
+            dishes.Add($"{shop.Area}人气推荐");
+        }
+
+        return dishes.Take(4).ToList();
+    }
+
+    private static string GetReviewSummary(Shop shop)
+    {
+        if (!string.IsNullOrWhiteSpace(shop.ReviewSummary))
+        {
+            return shop.ReviewSummary;
+        }
+
+        var level = shop.Score switch
+        {
+            >= 4.8m => "口碑极佳，回头客很多",
+            >= 4.5m => "整体体验优秀，值得专程打卡",
+            >= 4.0m => "口味稳定，综合表现不错",
+            >= 3.5m => "评价中规中矩，可按需尝试",
+            _ => "近期评价一般，建议先看最新点评"
+        };
+
+        return $"基于 {shop.Comments} 条公开评价，当前综合评分 {shop.Score:F1} 分，{level}。";
     }
 
 }

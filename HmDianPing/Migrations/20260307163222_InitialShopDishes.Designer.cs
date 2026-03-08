@@ -4,6 +4,7 @@ using HmDianPing.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HmDianPing.Migrations
 {
     [DbContext(typeof(HmDbContext))]
-    partial class HmDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260307163222_InitialShopDishes")]
+    partial class InitialShopDishes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -98,7 +101,7 @@ namespace HmDianPing.Migrations
                     b.Property<DateTime>("CreateTime")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("DishName")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)");
@@ -248,18 +251,11 @@ namespace HmDianPing.Migrations
 
             modelBuilder.Entity("HmDianPing.Web.Models.ShopDish", b =>
                 {
-                    b.HasOne("HmDianPing.Web.Models.Shop", "Shop")
-                        .WithMany("Dishes")
+                    b.HasOne("HmDianPing.Web.Models.Shop", null)
+                        .WithMany()
                         .HasForeignKey("ShopId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Shop");
-                });
-
-            modelBuilder.Entity("HmDianPing.Web.Models.Shop", b =>
-                {
-                    b.Navigation("Dishes");
                 });
 #pragma warning restore 612, 618
         }

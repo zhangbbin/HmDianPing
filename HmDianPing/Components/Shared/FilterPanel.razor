@@ -1,0 +1,116 @@
+@using HmDianPing.Web.Dtos
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">关键词</label>
+                <InputText class="form-control"
+                           placeholder="店铺名/商圈/地址"
+                           @bind-Value="Value.SearchText"
+                           @bind-Value:after="NotifyChangedAsync" />
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">分类</label>
+                <InputSelect class="form-select"
+                             @bind-Value="Value.Category"
+                             @bind-Value:after="NotifyChangedAsync">
+                    <option value="">全部分类</option>
+                    @foreach (var category in Categories)
+                    {
+                        <option value="@category">@category</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">区域</label>
+                <InputSelect class="form-select"
+                             @bind-Value="Value.Region"
+                             @bind-Value:after="NotifyChangedAsync">
+                    <option value="">全部区域</option>
+                    @foreach (var region in Regions)
+                    {
+                        <option value="@region">@region</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="col-md-1">
+                <label class="form-label">最低人均</label>
+                <InputNumber class="form-control"
+                             @bind-Value="Value.MinAvgPrice"
+                             @bind-Value:after="NotifyChangedAsync" />
+            </div>
+
+            <div class="col-md-1">
+                <label class="form-label">最高人均</label>
+                <InputNumber class="form-control"
+                             @bind-Value="Value.MaxAvgPrice"
+                             @bind-Value:after="NotifyChangedAsync" />
+            </div>
+
+            <div class="col-md-1">
+                <label class="form-label">最低评分</label>
+                <InputNumber class="form-control"
+                             @bind-Value="Value.MinRating"
+                             @bind-Value:after="NotifyChangedAsync"
+                             Step="0.1" />
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">排序</label>
+                <InputSelect class="form-select"
+                             @bind-Value="Value.SortBy"
+                             @bind-Value:after="NotifyChangedAsync">
+                    <option value="@ShopSortBy.Distance">距离</option>
+                    <option value="@ShopSortBy.Rating">评分</option>
+                    <option value="@ShopSortBy.Popularity">热度</option>
+                </InputSelect>
+            </div>
+        </div>
+
+        <div class="mt-3 text-end">
+            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="ResetAsync">
+                重置筛选
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public FilterRequest Value { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<FilterRequest> ValueChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<FilterRequest> OnChanged { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<string> Categories { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<string> Regions { get; set; } = [];
+
+    private async Task NotifyChangedAsync()
+    {
+        if (ValueChanged.HasDelegate)
+        {
+            await ValueChanged.InvokeAsync(Value);
+        }
+
+        if (OnChanged.HasDelegate)
+        {
+            await OnChanged.InvokeAsync(Value);
+        }
+    }
+
+    private async Task ResetAsync()
+    {
+        Value = new FilterRequest();
+        await NotifyChangedAsync();
+    }
+}

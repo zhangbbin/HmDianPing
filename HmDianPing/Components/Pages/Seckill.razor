@@ -1,0 +1,106 @@
+﻿@page "/seckill"
+@rendermode InteractiveServer
+@using HmDianPing.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject VoucherOrderService OrderService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+
+<PageTitle>秒杀测试</PageTitle>
+
+<div class="container mt-4">
+    <div class="card text-center">
+        <div class="card-header">
+            🔥 疯狂秒杀中
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">100元店铺神券</h5>
+            <p class="card-text">仅售 1 元！手慢无！</p>
+
+            <div class="display-4 my-4 text-danger">
+                ¥ 1.00
+            </div>
+
+            @if (!string.IsNullOrEmpty(message))
+            {
+                <div class="alert @(isSuccess ? "alert-success" : "alert-danger")">
+                    @message
+                </div>
+            }
+
+            <button class="btn btn-danger btn-lg" @onclick="HandleSeckill" disabled="@isBusy">
+                @if (isBusy)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span> 抢购中...</span>
+                }
+                else
+                {
+                    <span>🚀 立即抢购</span>
+                }
+            </button>
+        </div>
+        <div class="card-footer text-muted">
+            测试数据：优惠券ID=1
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isBusy = false;
+    private string message = "";
+    private bool isSuccess = false;
+
+    private async Task HandleSeckill()
+    {
+        isBusy = true;
+        message = "";
+
+        try
+        {
+            // 1. 获取当前登录用户 ID
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity == null || !user.Identity.IsAuthenticated)
+            {
+                message = "请先登录！";
+                isSuccess = false;
+                // 3秒后跳转登录
+                await Task.Delay(2000);
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            var userIdStr = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!long.TryParse(userIdStr, out long userId))
+            {
+                message = "用户ID解析失败";
+                return;
+            }
+
+            // 2. 发起秒杀请求 (固定抢 ID=1 的券)
+            long orderId = await OrderService.SeckillVoucherAsync(1, userId);
+
+            if (orderId > 0)
+            {
+                isSuccess = true;
+                message = $"🎉 抢购成功！订单号：{orderId}";
+            }
+            else
+            {
+                isSuccess = false;
+                message = "😭 抢购失败（库存不足或不在活动时间）";
+            }
+        }
+        catch (Exception ex)
+        {
+            isSuccess = false;
+            message = "❌ 系统异常：" + ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+}

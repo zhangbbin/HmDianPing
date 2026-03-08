@@ -1,5 +1,6 @@
 ﻿@page "/shops"
 @rendermode InteractiveServer
+@using HmDianPing.Web.Dtos
 @using HmDianPing.Web.Models
 @using HmDianPing.Web.Services
 @using HmDianPing.Components.Shared
@@ -11,21 +12,8 @@
 
 <div class="container mt-4">
     <div class="row align-items-center mb-4">
-        <div class="col-md-3">
+        <div class="col-md-9">
             <h3 class="mb-0">🔥 热门店铺推荐</h3>
-        </div>
-
-        <div class="col-md-6">
-            <div class="input-group">
-                <span class="input-group-text bg-white">
-                    <i class="bi bi-search"></i>
-                </span>
-                <input type="text" class="form-control" placeholder="搜索店铺名称或商圈..."
-                       @bind-value="searchText"
-                       @onkeydown="HandleEnter" />
-
-                <button class="btn btn-primary" @onclick="SearchShops">搜索</button>
-            </div>
         </div>
 
         <div class="col-md-3 text-end">
@@ -35,6 +23,11 @@
         </div>
     </div>
 
+    <FilterPanel @bind-Value="filterRequest"
+                 Categories="@filterOptions.Categories"
+                 Regions="@filterOptions.Regions"
+                 OnChanged="OnFiltersChanged" />
+
     @if (shops == null)
     {
         <div class="alert alert-info">正在加载美味数据...</div>
@@ -42,8 +35,7 @@
     else if (shops.Count == 0)
     {
         <div class="alert alert-warning">
-            没有找到关于 "<strong>@searchText</strong>" 的店铺，换个词试试？
-            <button class="btn btn-link p-0" @onclick="ClearSearch">清除搜索</button>
+            没有找到符合当前筛选条件的店铺，请调整筛选后重试。
         </div>
     }
     else
@@ -71,7 +63,9 @@
                         if (i == 1 || i == TotalPages || (i >= currentPage - 2 && i <= currentPage + 2))
                         {
                             var pageNumber = i;
-                            <li class="page-item ...">...</li>
+                            <li class="page-item @(currentPage == pageNumber ? "active" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(pageNumber)">@pageNumber</button>
+                            </li>
                         }
                         else if (i == currentPage - 3 || i == currentPage + 3)
                         {
@@ -96,9 +90,8 @@
 
 @code {
     private List<Shop>? shops;
-
-    // 新增：搜索关键词变量
-    private string searchText = "";
+    private FilterRequest filterRequest = new();
+    private ShopFilterOptionsDto filterOptions = new();
 
     // 新增：分页状态变量
     private int currentPage = 1;
@@ -110,42 +103,23 @@
 
     protected override async Task OnInitializedAsync()
     {
+        filterOptions = await ShopService.GetFilterOptionsAsync();
         await LoadData();
     }
 
     // 将加载数据的逻辑抽取出来，方便复用
     private async Task LoadData()
     {
-        // 调用 Service，传入当前页码
-        var result = await ShopService.GetAllShopsAsync(searchText, currentPage, pageSize);
+        var result = await ShopService.GetShopsByFilterAsync(filterRequest, currentPage, pageSize);
 
         // 解包结果
         shops = result.Items;
         totalCount = result.TotalCount;
     }
 
-    // 新增：点击搜索按钮的方法
-    private async Task SearchShops()
+    private async Task OnFiltersChanged(FilterRequest _)
     {
-        // ⚠️ 搜索时，必须重置回第 1 页，否则可能搜不到数据
         currentPage = 1;
-        // 重新加载数据，LoadData 会读取最新的 searchText
-        await LoadData();
-    }
-
-    // 新增：处理键盘回车事件 (提升用户体验)
-    private async Task HandleEnter(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            await SearchShops();
-        }
-    }
-
-    // 新增：清除搜索
-    private async Task ClearSearch()
-    {
-        searchText = "";
         await LoadData();
     }
 

@@ -26,6 +26,20 @@ public class Shop
     [MaxLength(255)]
     public string? Address { get; set; } // 地址
 
+    [MaxLength(64)]
+    public string? BusinessHours { get; set; } // 营业时间
+
+    [MaxLength(32)]
+    public string? Phone { get; set; } // 联系电话
+
+    [MaxLength(512)]
+    public string? RecommendedDishes { get; set; } // 推荐菜（逗号分隔）
+
+    [MaxLength(1000)]
+    public string? ReviewSummary { get; set; } // 评论摘要
+
+    public List<ShopDish> Dishes { get; set; } = [];
+
     [Column(TypeName = "decimal(10, 2)")] // 比如 4.5 分
     public decimal Score { get; set; }
 

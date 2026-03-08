@@ -10,12 +10,23 @@ public class HmDbContext : DbContext
     }
 
     public DbSet<Shop> Shops { get; set; }
+    public DbSet<ShopDish> ShopDishes { get; set; }
 
     public DbSet<User> Users { get; set; }
+
+    public DbSet<Voucher> Vouchers { get; set; }
+    public DbSet<VoucherOrder> VoucherOrders { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        // 这里可以添加更多 Fluent API 配置
+        modelBuilder.Entity<ShopDish>()
+            .HasIndex(x => new { x.ShopId, x.SortOrder });
+
+        modelBuilder.Entity<Shop>()
+            .HasMany(x => x.Dishes)
+            .WithOne(x => x.Shop)
+            .HasForeignKey(x => x.ShopId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -4,6 +4,7 @@ using HmDianPing.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HmDianPing.Migrations
 {
     [DbContext(typeof(HmDbContext))]
-    partial class HmDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260130111414_AddVoucherTables")]
+    partial class AddVoucherTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -41,10 +44,6 @@ namespace HmDianPing.Migrations
                     b.Property<long>("AvgPrice")
                         .HasColumnType("bigint");
 
-                    b.Property<string>("BusinessHours")
-                        .HasMaxLength(64)
-                        .HasColumnType("varchar(64)");
-
                     b.Property<int>("Comments")
                         .HasColumnType("int");
 
@@ -60,18 +59,6 @@ namespace HmDianPing.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)");
 
-                    b.Property<string>("Phone")
-                        .HasMaxLength(32)
-                        .HasColumnType("varchar(32)");
-
-                    b.Property<string>("RecommendedDishes")
-                        .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
-
-                    b.Property<string>("ReviewSummary")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
                     b.Property<decimal>("Score")
                         .HasColumnType("decimal(10, 2)");
 
@@ -85,35 +72,6 @@ namespace HmDianPing.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("tb_shop");
-                });
-
-            modelBuilder.Entity("HmDianPing.Web.Models.ShopDish", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CreateTime")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("varchar(64)");
-
-                    b.Property<long>("ShopId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ShopId", "SortOrder");
-
-                    b.ToTable("tb_shop_dish");
                 });
 
             modelBuilder.Entity("HmDianPing.Web.Models.User", b =>
@@ -244,22 +202,6 @@ namespace HmDianPing.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("tb_voucher_order");
-                });
-
-            modelBuilder.Entity("HmDianPing.Web.Models.ShopDish", b =>
-                {
-                    b.HasOne("HmDianPing.Web.Models.Shop", "Shop")
-                        .WithMany("Dishes")
-                        .HasForeignKey("ShopId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Shop");
-                });
-
-            modelBuilder.Entity("HmDianPing.Web.Models.Shop", b =>
-                {
-                    b.Navigation("Dishes");
                 });
 #pragma warning restore 612, 618
         }
