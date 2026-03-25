@@ -1,12 +1,17 @@
 using HmDianPing.Components;
 using HmDianPing.Web.Data;
+using HmDianPing.Web.Security;
 using HmDianPing.Web.Services;
 using HmDianPing.Web.Utils;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using Serilog.Events;
 using StackExchange.Redis;
+using System.Text;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
@@ -33,14 +38,49 @@ try
         options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
     // Add services to the container.
+    builder.Services.AddControllers();
     builder.Services.AddRazorComponents()
         .AddInteractiveServerComponents();
+
+    var jwtKey = builder.Configuration["Jwt:Key"] ?? "HmDianPing-Super-Secret-Key-For-Dev-Only-Please-Change";
+    var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "HmDianPing";
+    var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "HmDianPing.Client";
+
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+
+    builder.Services.AddAuthorization(options =>
+    {
+        options.AddPolicy(PolicyNames.CanManageShops, policy =>
+            policy.RequireRole(RoleConstants.Merchant, RoleConstants.Admin, RoleConstants.SuperAdmin));
+
+        options.AddPolicy(PolicyNames.CanEditShopResource, policy =>
+            policy.Requirements.Add(new CanEditShopRequirement()));
+    });
 
     // зЂВс Service
     builder.Services.AddScoped<ShopService>();
     builder.Services.AddScoped<UserService>();
+    builder.Services.AddScoped<JwtTokenService>();
     builder.Services.AddScoped<RedisIdWorker>();
     builder.Services.AddScoped<VoucherOrderService>();
+    builder.Services.AddScoped<IAuthorizationHandler, ShopEditAuthorizationHandler>();
     builder.Services.AddCascadingAuthenticationState();
     builder.Services.AddScoped<AuthenticationStateProvider, HmAuthStateProvider>();
 
@@ -56,9 +96,13 @@ try
     app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
     app.UseHttpsRedirection();
 
+    app.UseAuthentication();
+    app.UseAuthorization();
+
     app.UseAntiforgery();
 
     app.MapStaticAssets();
+    app.MapControllers();
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
 

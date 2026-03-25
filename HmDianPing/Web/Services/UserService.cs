@@ -1,5 +1,6 @@
 ﻿using HmDianPing.Web.Data;
 using HmDianPing.Web.Models;
+using HmDianPing.Web.Security;
 using HmDianPing.Web.Utils;
 using StackExchange.Redis;
 using System.Text.RegularExpressions;
@@ -10,11 +11,13 @@ namespace HmDianPing.Web.Services
     {
         private readonly HmDbContext _context;
         private readonly IConnectionMultiplexer _redis;
+        private readonly JwtTokenService _jwtTokenService;
 
-        public UserService(HmDbContext context, IConnectionMultiplexer redis)
+        public UserService(HmDbContext context, IConnectionMultiplexer redis, JwtTokenService jwtTokenService)
         {
             _context = context;
             _redis = redis;
+            _jwtTokenService = jwtTokenService;
         }
 
         /// <summary>
@@ -77,8 +80,8 @@ namespace HmDianPing.Web.Services
                 user = await CreateUserWithPhone(phone);
             }
 
-            // 6. 生成随机 Token (UUID)
-            var token = Guid.NewGuid().ToString("N");
+            // 6. 生成 JWT Token
+            var token = _jwtTokenService.GenerateToken(user);
 
             // 7. 将 User 对象转为 Hash 存储到 Redis
             // Key: login:token:xxxxxxx
@@ -89,7 +92,8 @@ namespace HmDianPing.Web.Services
             {
                 new HashEntry("id", user.Id),
                 new HashEntry("nickName", user.NickName ?? ""),
-                new HashEntry("icon", user.Icon ?? "")
+                new HashEntry("icon", user.Icon ?? ""),
+                new HashEntry("role", user.Role ?? RoleConstants.User)
             };
 
             await db.HashSetAsync(tokenKey, hashEntries);
@@ -111,7 +115,8 @@ namespace HmDianPing.Web.Services
                 Phone = phone,
                 // 随机生成一个昵称：user_8a2c
                 NickName = "user_" + RandomString(6),
-                Icon = "https://placehold.co/100x100/png?text=User" // 默认头像
+                Icon = "https://placehold.co/100x100/png?text=User", // 默认头像
+                Role = RoleConstants.User
             };
             _context.Users.Add(user);
             await _context.SaveChangesAsync();

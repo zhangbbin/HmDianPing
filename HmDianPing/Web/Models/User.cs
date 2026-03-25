@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using HmDianPing.Web.Security;
 
 namespace HmDianPing.Web.Models
 {
@@ -21,6 +22,9 @@ namespace HmDianPing.Web.Models
 
         [MaxLength(255)]
         public string? Icon { get; set; } = ""; // 头像，默认空字符串
+
+        [MaxLength(32)]
+        public string Role { get; set; } = RoleConstants.User;
 
         public DateTime CreateTime { get; set; } = DateTime.Now;
         public DateTime UpdateTime { get; set; } = DateTime.Now;

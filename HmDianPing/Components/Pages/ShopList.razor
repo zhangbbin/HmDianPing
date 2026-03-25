@@ -2,9 +2,13 @@
 @rendermode InteractiveServer
 @using HmDianPing.Web.Dtos
 @using HmDianPing.Web.Models
+@using HmDianPing.Web.Security
 @using HmDianPing.Web.Services
 @using HmDianPing.Components.Shared
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @inject ShopService ShopService
+@inject AuthenticationStateProvider AuthProvider
 
 @inject IJSRuntime JS
 
@@ -44,7 +48,7 @@
             @foreach (var shopItem in shops)
             {
                 <div class="col-md-4 mb-4">
-                    <ShopCard Shop="shopItem" OnDeleteClick="DeleteShop" />
+                    <ShopCard Shop="shopItem" OnDeleteClick="DeleteShop" CanDelete="CanManageShop(shopItem)" />
                 </div>
             }
         </div>
@@ -92,6 +96,9 @@
     private List<Shop>? shops;
     private FilterRequest filterRequest = new();
     private ShopFilterOptionsDto filterOptions = new();
+    private long? currentUserId;
+    private bool isMerchant;
+    private bool canManageAllShops;
 
     // 新增：分页状态变量
     private int currentPage = 1;
@@ -103,8 +110,34 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadCurrentUserPermissionAsync();
         filterOptions = await ShopService.GetFilterOptionsAsync();
         await LoadData();
+    }
+
+    private async Task LoadCurrentUserPermissionAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        canManageAllShops = user.IsInRole(RoleConstants.Admin) || user.IsInRole(RoleConstants.SuperAdmin);
+        isMerchant = user.IsInRole(RoleConstants.Merchant);
+
+        var userIdValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (long.TryParse(userIdValue, out var userId))
+        {
+            currentUserId = userId;
+        }
+    }
+
+    private bool CanManageShop(Shop shop)
+    {
+        if (canManageAllShops)
+        {
+            return true;
+        }
+
+        return isMerchant && currentUserId.HasValue && shop.OwnerUserId == currentUserId.Value;
     }
 
     // 将加载数据的逻辑抽取出来，方便复用

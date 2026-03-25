@@ -68,7 +68,10 @@ namespace HmDianPing.Web.Services
             if (!string.IsNullOrWhiteSpace(request.SearchText))
             {
                 var keyword = request.SearchText.Trim();
-                query = query.Where(s => s.Name.Contains(keyword) || s.Area!.Contains(keyword) || s.Address!.Contains(keyword));
+                query = query.Where(s =>
+                    s.Name.Contains(keyword) ||
+                    (s.Area != null && s.Area.Contains(keyword)) ||
+                    (s.Address != null && s.Address.Contains(keyword)));
             }
 
             if (!string.IsNullOrWhiteSpace(request.Category))

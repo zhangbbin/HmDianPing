@@ -20,10 +20,13 @@
         <div>
             <a href="/shop/@Shop.Id" class="btn btn-outline-primary btn-sm">详情</a>
 
-            <button class="btn btn-outline-danger btn-sm ms-1"
-                    @onclick="HandleDeleteClick">
-                删除
-            </button>
+            @if (CanDelete)
+            {
+                <button class="btn btn-outline-danger btn-sm ms-1"
+                        @onclick="HandleDeleteClick">
+                    删除
+                </button>
+            }
         </div>
     </div>
 </div>
@@ -38,6 +41,9 @@
     // EventCallback<long> 表示我们会带出一个 long 类型的参数（ID）给父组件
     [Parameter]
     public EventCallback<long> OnDeleteClick { get; set; }
+
+    [Parameter]
+    public bool CanDelete { get; set; }
 
     private async Task HandleDeleteClick()
     {

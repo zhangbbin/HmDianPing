@@ -1,9 +1,13 @@
 ﻿@page "/shop/{Id:long}"
 @rendermode InteractiveServer
 @using HmDianPing.Web.Models
+@using HmDianPing.Web.Security
 @using HmDianPing.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @inject ShopService ShopService
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthProvider
 
 <PageTitle>店铺详情 - @(shop?.Name ?? "加载中")</PageTitle>
 
@@ -101,9 +105,12 @@
                             <button class="btn btn-primary" @onclick="AddHeat">
                                 <i class="bi bi-hand-thumbs-up"></i> 觉得有用 (@shop.Comments)
                             </button>
-                            <a href="/shop/edit/@shop.Id" class="btn btn-outline-secondary">
-                                <i class="bi bi-pencil-square"></i> 编辑
-                            </a>
+                            @if (canEditShop)
+                            {
+                                <a href="/shop/edit/@shop.Id" class="btn btn-outline-secondary">
+                                    <i class="bi bi-pencil-square"></i> 编辑
+                                </a>
+                            }
                             <button class="btn btn-outline-danger">收藏店铺</button>
                         </div>
                     </div>
@@ -119,13 +126,44 @@
 
     private Shop? shop;
     private bool isLoading = true;
+    private bool canEditShop;
 
     protected override async Task OnInitializedAsync()
     {
         // 模拟加载延迟，体验更好
         await Task.Delay(300);
         shop = await ShopService.GetShopByIdAsync(Id);
+        canEditShop = await CheckCanEditShopAsync();
         isLoading = false;
+    }
+
+    private async Task<bool> CheckCanEditShopAsync()
+    {
+        if (shop == null)
+        {
+            return false;
+        }
+
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            return false;
+        }
+
+        if (user.IsInRole(RoleConstants.Admin) || user.IsInRole(RoleConstants.SuperAdmin))
+        {
+            return true;
+        }
+
+        if (!user.IsInRole(RoleConstants.Merchant))
+        {
+            return false;
+        }
+
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        return long.TryParse(userId, out var currentUserId) && shop.OwnerUserId == currentUserId;
     }
 
     private void GoBack()

@@ -1,4 +1,5 @@
 ﻿using HmDianPing.Web.Utils;
+using HmDianPing.Web.Security;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
 using StackExchange.Redis;
@@ -47,13 +48,15 @@ namespace HmDianPing.Web.Services
                 // 我们只需要 ID 和 NickName 用于显示
                 var nickName = await db.HashGetAsync(tokenKey, "nickName");
                 var userId = await db.HashGetAsync(tokenKey, "id");
+                var role = await db.HashGetAsync(tokenKey, "role");
+                var roleValue = role.ToString();
 
                 // 4. 构建“通行证” (ClaimsPrincipal)
                 var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, nickName.ToString()),
                 new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                // 你还可以加 Role 等其他信息
+                new Claim(ClaimTypes.Role, string.IsNullOrWhiteSpace(roleValue) ? RoleConstants.User : roleValue)
             };
 
                 var identity = new ClaimsIdentity(claims, "RedisAuth"); // "RedisAuth" 是认证类型，必须填，否则视为未认证

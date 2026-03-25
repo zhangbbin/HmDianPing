@@ -26,6 +26,8 @@ public class Shop
     [MaxLength(255)]
     public string? Address { get; set; } // 地址
 
+    public long? OwnerUserId { get; set; } // 店铺归属商家用户 ID
+
     [MaxLength(64)]
     public string? BusinessHours { get; set; } // 营业时间
 
